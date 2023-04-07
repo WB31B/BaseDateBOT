@@ -2,44 +2,63 @@ package main
 
 import (
 	"fmt"
-	"log"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
+const tgbotapiKey = ""
+
+var mainMenu = tgbotapi.NewReplyKeyboard(
+	tgbotapi.NewKeyboardButtonRow(
+		tgbotapi.NewKeyboardButton("1"),
+		tgbotapi.NewKeyboardButton("2"),
+	),
+	tgbotapi.NewKeyboardButtonRow(
+		tgbotapi.NewKeyboardButton("/root"),
+	),
+)
+
 func main() {
-	bot, err := tgbotapi.NewBotAPI("6264249392:AAGLXUke-UcRCqwdzsria-KXSwS_VLxp71Q")
+	var (
+		bot        *tgbotapi.BotAPI
+		err        error
+		updChannel tgbotapi.UpdatesChannel
+		update     tgbotapi.Update
+		updConfig  tgbotapi.UpdateConfig
+	)
+	bot, err = tgbotapi.NewBotAPI(tgbotapiKey)
 	if err != nil {
-		log.Panic(err)
+		panic(err.Error())
 	}
 
-	bot.Debug = true
+	updConfig.Timeout = 60
+	updConfig.Limit = 1
+	updConfig.Offset = 0
 
-	log.Printf("Autorized on account %s", bot.Self.UserName)
+	updChannel = bot.GetUpdatesChan(updConfig)
 
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
+	for {
+		update = <-updChannel
 
-	updates := bot.GetUpdatesChan(u)
+		if update.Message != nil {
+			if update.Message.IsCommand() {
+				cmdText := update.Message.Command()
+				if cmdText == "root" {
+					msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, "Hi -> "+update.Message.From.FirstName)
+					bot.Send(msgConfig)
+				} else if cmdText == "menu" {
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Main Menu")
+					msg.ReplyMarkup = mainMenu
+					bot.Send(msg)
+				}
+			} else {
+				fmt.Printf("[Message]: %s | [Name]: %s\n", update.Message.Text, update.Message.From.FirstName)
 
-	for update := range updates {
-		if update.Message == nil {
-			fmt.Println("NILL")
-		}
-
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-
-		switch update.Message.Command() {
-		case "myID":
-			msg.Text = update.Message.From.UserName
-		case "chatID":
-			msg.Text = "1"
-		default:
-			msg.Text = "I don't know that command"
-		}
-
-		if _, err := bot.Send(msg); err != nil {
-			log.Panic(err)
+				msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
+				bot.Send(msgConfig)
+			}
 		}
 	}
+
+	bot.StopReceivingUpdates()
 }
