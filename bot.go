@@ -3,20 +3,21 @@ package main
 import (
 	"fmt"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	tgbotapi ""
 )
 
-const tgbotapiKey = ""
+const tgbotapiKey = "6264249392:AAGLXUke-UcRCqwdzsria-KXSwS_VLxp71Q"
 
-var mainMenu = tgbotapi.NewReplyKeyboard(
+var rootMenu = tgbotapi.NewReplyKeyboard(
 	tgbotapi.NewKeyboardButtonRow(
-		tgbotapi.NewKeyboardButton("1"),
-		tgbotapi.NewKeyboardButton("2"),
-	),
-	tgbotapi.NewKeyboardButtonRow(
-		tgbotapi.NewKeyboardButton("/root"),
+		tgbotapi.NewKeyboardButton("All Users"),
 	),
 )
+
+type User struct {
+	ID   int
+	Name string
+}
 
 func main() {
 	var (
@@ -43,19 +44,31 @@ func main() {
 		if update.Message != nil {
 			if update.Message.IsCommand() {
 				cmdText := update.Message.Command()
-				if cmdText == "root" {
+				if cmdText == "start" {
 					msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, "Hi -> "+update.Message.From.FirstName)
-					bot.Send(msgConfig)
-				} else if cmdText == "menu" {
-					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Main Menu")
-					msg.ReplyMarkup = mainMenu
-					bot.Send(msg)
-				}
-			} else {
-				fmt.Printf("[Message]: %s | [Name]: %s\n", update.Message.Text, update.Message.From.FirstName)
 
-				msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
-				bot.Send(msgConfig)
+					bot.Send(msgConfig)
+				}
+				// } else if cmdText == "menu" {
+				// 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Main Menu")
+				// 	msg.ReplyMarkup = mainMenu
+				// 	bot.Send(msg)
+				// }
+			} else {
+				if update.Message.Text == "dRootfaceT1" {
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "...")
+					msg.ReplyMarkup = rootMenu
+					bot.Send(msg)
+				} else {
+					msgInfoUser := fmt.Sprintf("[Your name]: %s\n[Your ID]: %v\n[Your message]: %s\n",
+						update.Message.From.FirstName,
+						update.Message.From.ID,
+						update.Message.Text,
+					)
+
+					msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, msgInfoUser)
+					bot.Send(msgConfig)
+				}
 			}
 		}
 	}
