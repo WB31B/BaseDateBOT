@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 
-	tgbotapi ""
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
-const tgbotapiKey = "6264249392:AAGLXUke-UcRCqwdzsria-KXSwS_VLxp71Q"
+const tgbotapiKey = ""
 
 var rootMenu = tgbotapi.NewReplyKeyboard(
 	tgbotapi.NewKeyboardButtonRow(
@@ -14,9 +16,13 @@ var rootMenu = tgbotapi.NewReplyKeyboard(
 	),
 )
 
+var DB *gorm.DB
+
 type User struct {
-	ID   int
-	Name string
+	gorm.Model
+	ID      int    `json:"id" gorm:"primary_key"`
+	Name    string `json:"name"`
+	Message string `json:"user_message"`
 }
 
 func main() {
@@ -38,6 +44,15 @@ func main() {
 
 	updChannel = bot.GetUpdatesChan(updConfig)
 
+	db, err := gorm.Open(postgres.Open("postgres://postgres:pG2r4hack@localhost:5432/postgres"), &gorm.Config{})
+	if err != nil {
+		panic(err.Error())
+	}
+
+	db.AutoMigrate(&User{})
+
+	DB = db
+
 	for {
 		update = <-updChannel
 
@@ -56,7 +71,7 @@ func main() {
 				// }
 			} else {
 				if update.Message.Text == "dRootfaceT1" {
-					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "...")
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg.ReplyMarkup = rootMenu
 					bot.Send(msg)
 				} else {
