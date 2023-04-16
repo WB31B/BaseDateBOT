@@ -1,27 +1,18 @@
 package main
 
 import (
-	"database/sql"
+	"TGbot/config"
+	"TGbot/database"
 	"fmt"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	_ "github.com/lib/pq"
 )
 
-const tgbotapiKey = ""
-
 var rootMenu = tgbotapi.NewReplyKeyboard(
 	tgbotapi.NewKeyboardButtonRow(
 		tgbotapi.NewKeyboardButton("All Users"),
 	),
-)
-
-const (
-	host     = "localhost"
-	port     = "5432"
-	user     = "postgres"
-	password = ""
-	dbName   = "tusergbot"
 )
 
 func main() {
@@ -32,6 +23,10 @@ func main() {
 		update     tgbotapi.Update
 		updConfig  tgbotapi.UpdateConfig
 	)
+
+	tgbotapiKey, err := config.GetKey()
+	CheckError(err)
+
 	bot, err = tgbotapi.NewBotAPI(tgbotapiKey)
 	CheckError(err)
 
@@ -41,55 +36,84 @@ func main() {
 
 	updChannel = bot.GetUpdatesChan(updConfig)
 
-	psqlsconn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbName)
+	// var users []int64
+	users := make(chan []int64)
 
-	db, err := sql.Open("postgres", psqlsconn)
+	db, err := database.Connect()
 	CheckError(err)
 
 	defer db.Close()
+
+	rows, err := db.Query(`SELECT user_id FROM users;`)
+	CheckError(err)
 
 	for {
 		update = <-updChannel
 
 		if update.Message != nil {
-			if update.Message.IsCommand() {
-				cmdText := update.Message.Command()
-				if cmdText == "db" {
-					insertStmt := fmt.Sprintf(`insert into "users"("user_id", "user_name", "user_message") values(%v, '%v', '%v')`,
-						update.Message.From.ID, update.Message.From.FirstName, update.Message.Text)
+			addNewUser := fmt.Sprintf(`insert into "users"("user_id") values(%v)`, update.Message.From.ID)
+			deleteUser := fmt.Sprint(`delete from users where user_id = $1`, 56)
 
-					_, e := db.Exec(insertStmt)
-					CheckError(e)
+			go func() {
+				for rows.Next() {
+					var user_id int64
 
-					msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, "hello")
+					err := rows.Scan(&user_id)
+					CheckError(err)
 
-					bot.Send(msgConfig)
+					users <- append(<-users, user_id)
 				}
-				// } else if cmdText == "menu" {
-				// 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Main Menu")
-				// 	msg.ReplyMarkup = mainMenu
-				// 	bot.Send(msg)
-				// }
-			} else {
-				if update.Message.Text == "dRootfaceT1" {
-					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-					msg.ReplyMarkup = rootMenu
-					bot.Send(msg)
+			}()
+
+			fmt.Println("users: ", <-users)
+
+			for _, user := range <-users {
+				if user == update.Message.Chat.ID {
+					if update.Message.IsCommand() {
+						if update.Message.Command() == "newuser" {
+							botMsg := fmt.Sprintf("Hi: %v", user)
+							msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, botMsg)
+							bot.Send(msgConfig)
+						} else if update.Message.Command() == "delU" {
+							result, err := db.Exec(deleteUser)
+							CheckError(err)
+							fmt.Println("delete user with id: 56 ->", result)
+						}
+					} else if update.Message.Text == "users" {
+						for _, user := range <-users {
+							botMSG := fmt.Sprintf("user ID: %v", user)
+							msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, botMSG)
+							bot.Send(msgConfig)
+						}
+					}
+					fmt.Println("user is not null")
 				} else {
-					msgInfoUser := fmt.Sprintf("[Your name]: %s\n[Your ID]: %v\n[Your message]: %s\n",
-						update.Message.From.FirstName,
-						update.Message.From.ID,
-						update.Message.Text,
-					)
-
-					fmt.Println(msgInfoUser)
-
-					msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, msgInfoUser)
+					botMSG := fmt.Sprintf("HI New user -> %v", update.Message.Chat.ID)
+					msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, botMSG)
 					bot.Send(msgConfig)
+
+					_, e := db.Exec(addNewUser)
+					CheckError(e)
 				}
+				fmt.Println("step 1")
 			}
+			fmt.Println("step 2")
+
+			// if update.Message.Text == "users" {
+			// 	for _, user := range users {
+			// 		botMSG := fmt.Sprintf("user ID: %v", user)
+			// 		msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, botMSG)
+			// 		bot.Send(msgConfig)
+			// 	}
+			// }
+			// defer rows.Close()
 		}
+
+		// } else if cmdText == "menu" {
+		// 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Main Menu")
+		// 	msg.ReplyMarkup = mainMenu
+		// 	bot.Send(msg)
+		// }
 
 	}
 
