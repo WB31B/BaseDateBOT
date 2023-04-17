@@ -9,7 +9,7 @@ const (
 	host     = "localhost"
 	port     = "5432"
 	user     = "postgres"
-	password = "pG2r4hack"
+	password = ""
 	dbName   = "tusergbot"
 )
 

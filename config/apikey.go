@@ -1,6 +1,6 @@
 package config
 
-const tgbotapiKey = "6264249392:AAGLXUke-UcRCqwdzsria-KXSwS_VLxp71Q"
+const tgbotapiKey = ""
 
 func GetKey() (string, error) {
 	return tgbotapiKey, nil
