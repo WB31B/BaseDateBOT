@@ -16,7 +16,7 @@ var rootMenu = tgbotapi.NewReplyKeyboard(
 	),
 )
 
-func main() {
+func mainn() {
 	var (
 		bot        *tgbotapi.BotAPI
 		err        error
@@ -73,7 +73,7 @@ func main() {
 						msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, botMsg)
 						bot.Send(msgConfig)
 					} else if update.Message.Command() == "delU" {
-						result, err := db.Exec(deleteUser, update.Message.Chat.ID)
+						_, err := db.Exec(deleteUser, update.Message.Chat.ID)
 						CheckError(err)
 
 						users, err = action.DeleteUser(users, update.Message.Chat.ID)
