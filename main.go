@@ -1,57 +1,84 @@
 package main
 
 import (
-	"TGbot/bot"
 	"TGbot/config"
+	"TGbot/database"
 	"TGbot/errors"
-	"encoding/json"
+	"TGbot/weather"
 	"fmt"
-	"io/ioutil"
-	"net/http"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	_ "github.com/lib/pq"
 )
 
-type WeatherData struct {
-	Data     Data     `json:"data"`
-	Location Location `json:"location"`
-}
-
-type Data struct {
-	Values Values `json:"values"`
-}
-
-type Location struct {
-	Name string `json:"name"`
-}
-
-type Values struct {
-	Temperature float64 `json:"temperature"`
-	WindSpeed   float64 `json:"windSpeed"`
-	Humidity    float64 `json:"humidity"`
-}
-
 func main() {
-	weatherKey, err := config.GetKey("")
+	var (
+		bot        *tgbotapi.BotAPI
+		updChannel tgbotapi.UpdatesChannel
+		update     tgbotapi.Update
+		updConfig  tgbotapi.UpdateConfig
+		users      []int64
+		user_id    int64
+	)
+
+	deleteUser := fmt.Sprintf(`delete from users where user_id = $1`)
+	addNewUser := fmt.Sprintf(`insert into "users"("user_id") values($1)`)
+	userDB := fmt.Sprintf(`select * from users where user_id = $1`)
+
+	db, err := database.Connect()
 	errors.CheckError(err)
 
-	var apiRealtimeWeather = fmt.Sprintf("https://api.tomorrow.io/v4/weather/realtime?location=kaunas&apikey=%v", weatherKey)
+	defer db.Close()
 
-	RealtimeWeather(apiRealtimeWeather)
-
-	bot.StartBot()
-}
-
-func RealtimeWeather(apiWeather string) {
-	resp, err := http.Get(apiWeather)
+	botKey, err := config.GetKey("")
 	errors.CheckError(err)
 
-	body, err := ioutil.ReadAll(resp.Body)
+	bot, err = tgbotapi.NewBotAPI(botKey)
 	errors.CheckError(err)
 
-	defer resp.Body.Close()
+	updConfig.Timeout = 60
+	updConfig.Limit = 1
+	updConfig.Offset = 0
 
-	var weatherData WeatherData
-	er := json.Unmarshal(body, &weatherData)
-	errors.CheckError(er)
+	updChannel = bot.GetUpdatesChan(updConfig)
 
-	fmt.Printf("%+v\n", weatherData)
+	for {
+		update = <-updChannel
+
+		if update.Message != nil {
+
+			row := db.QueryRow(userDB, update.Message.Chat.ID)
+			err = row.Scan(&user_id)
+			if err != nil {
+				_, err := db.Exec(addNewUser, update.Message.Chat.ID)
+				errors.CheckError(err)
+
+				if update.Message.IsCommand() {
+					if update.Message.Command() == "weather" {
+						weather, err := weather.Weather()
+						errors.CheckError(err)
+
+						fmt.Printf("%+v\n", weather)
+					} else if update.Message.Command() == "delU" {
+						_, err := db.Exec(deleteUser, update.Message.Chat.ID)
+						errors.CheckError(err)
+
+						// users, err = action.DeleteUser(users, update.Message.Chat.ID)
+						// errors.CheckError(err)
+					}
+				} else if update.Message.Text == "users" {
+					for _, user := range users {
+						botMSG := fmt.Sprintf("user ID: %v", user)
+						msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, botMSG)
+						bot.Send(msgConfig)
+					}
+				}
+			} else {
+				_, err := db.Exec(deleteUser, update.Message.Chat.ID)
+				errors.CheckError(err)
+			}
+		}
+	}
+
+	bot.StopReceivingUpdates()
 }
