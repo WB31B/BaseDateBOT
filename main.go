@@ -11,6 +11,11 @@ import (
 	_ "github.com/lib/pq"
 )
 
+var User struct {
+	user_id   int64
+	user_name string
+}
+
 func main() {
 	var (
 		bot        *tgbotapi.BotAPI
@@ -18,11 +23,10 @@ func main() {
 		update     tgbotapi.Update
 		updConfig  tgbotapi.UpdateConfig
 		users      []int64
-		user_id    int64
 	)
 
-	deleteUser := fmt.Sprintf(`delete from users where user_id = $1`)
-	addNewUser := fmt.Sprintf(`insert into "users"("user_id") values($1)`)
+	// deleteUser := fmt.Sprintf(`delete from users where user_id = $1`)
+	addNewUser := fmt.Sprintf(`insert into "users"("user_id", "user_name") values($1, $2)`)
 	userDB := fmt.Sprintf(`select * from users where user_id = $1`)
 
 	db, err := database.Connect()
@@ -46,36 +50,39 @@ func main() {
 		update = <-updChannel
 
 		if update.Message != nil {
-
 			row := db.QueryRow(userDB, update.Message.Chat.ID)
-			err = row.Scan(&user_id)
+			err = row.Scan(&User.user_id, &User.user_name)
 			if err != nil {
-				_, err := db.Exec(addNewUser, update.Message.Chat.ID)
+				_, err := db.Exec(addNewUser, update.Message.Chat.ID, update.Message.From.FirstName)
 				errors.CheckError(err)
+				break
+			}
+			break
+		}
+	}
 
-				if update.Message.IsCommand() {
-					if update.Message.Command() == "weather" {
-						weather, err := weather.Weather()
-						errors.CheckError(err)
+	for {
+		update = <-updChannel
 
-						fmt.Printf("%+v\n", weather)
-					} else if update.Message.Command() == "delU" {
-						_, err := db.Exec(deleteUser, update.Message.Chat.ID)
-						errors.CheckError(err)
+		if update.Message != nil {
+			if update.Message.IsCommand() {
+				if update.Message.Command() == "weather" {
+					weather, err := weather.Weather()
+					errors.CheckError(err)
 
-						// users, err = action.DeleteUser(users, update.Message.Chat.ID)
-						// errors.CheckError(err)
-					}
-				} else if update.Message.Text == "users" {
-					for _, user := range users {
-						botMSG := fmt.Sprintf("user ID: %v", user)
-						msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, botMSG)
-						bot.Send(msgConfig)
-					}
+					weatherInfo := fmt.Sprintf("Country: %v\nTemperature: %v\n",
+						weather.Location.Name, weather.Data.Values.Temperature)
+
+					msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, weatherInfo)
+					bot.Send(msgConfig)
+
 				}
-			} else {
-				_, err := db.Exec(deleteUser, update.Message.Chat.ID)
-				errors.CheckError(err)
+			} else if update.Message.Text == "users" {
+				for _, user := range users {
+					botMSG := fmt.Sprintf("user ID: %v", user)
+					msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, botMSG)
+					bot.Send(msgConfig)
+				}
 			}
 		}
 	}
