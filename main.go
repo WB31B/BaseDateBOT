@@ -6,6 +6,7 @@ import (
 	"TGbot/errors"
 	"TGbot/weather"
 	"fmt"
+	"io/ioutil"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	_ "github.com/lib/pq"
@@ -14,6 +15,7 @@ import (
 var User struct {
 	user_id   int64
 	user_name string
+	user_tgid string
 }
 
 func main() {
@@ -26,7 +28,7 @@ func main() {
 	)
 
 	// deleteUser := fmt.Sprintf(`delete from users where user_id = $1`)
-	addNewUser := fmt.Sprintf(`insert into "users"("user_id", "user_name") values($1, $2)`)
+	addNewUser := fmt.Sprintf(`insert into "users"("user_id", "user_name", "user_tgid") values($1, $2, $3)`)
 	userDB := fmt.Sprintf(`select * from users where user_id = $1`)
 
 	db, err := database.Connect()
@@ -52,9 +54,9 @@ func main() {
 		for {
 			if update.Message != nil {
 				row := db.QueryRow(userDB, update.Message.Chat.ID)
-				err = row.Scan(&User.user_id, &User.user_name)
+				err = row.Scan(&User.user_id, &User.user_name, &User.user_tgid)
 				if err != nil {
-					_, err := db.Exec(addNewUser, update.Message.Chat.ID, update.Message.From.FirstName)
+					_, err := db.Exec(addNewUser, update.Message.Chat.ID, update.Message.From.FirstName, update.Message.From.UserName)
 					errors.CheckError(err)
 					break
 				}
@@ -68,6 +70,10 @@ func main() {
 					weather, err := weather.Weather("london")
 					errors.CheckError(err)
 
+					data, _ := ioutil.ReadFile("images/6.png")
+					msgPhoto := tgbotapi.FileBytes{Name: "images/6.png", Bytes: data}
+					msgConfig := tgbotapi.NewPhoto(update.Message.Chat.ID, msgPhoto)
+
 					weatherInfo := fmt.Sprintf("User ID: [%v]\nCountry: %v\nTemperature: %v\nHumidity: %v\nCloud Cover: %v\nVisibility: %v\n\nTime: %v\n",
 						update.Message.From.ID,
 						weather.Location.Name,
@@ -77,7 +83,7 @@ func main() {
 						weather.Data.Values.Visibility,
 						weather.Data.Time)
 
-					msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, weatherInfo)
+					msgConfig.Caption = weatherInfo
 					bot.Send(msgConfig)
 
 				}
