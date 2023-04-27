@@ -49,29 +49,33 @@ func main() {
 	for {
 		update = <-updChannel
 
-		if update.Message != nil {
-			row := db.QueryRow(userDB, update.Message.Chat.ID)
-			err = row.Scan(&User.user_id, &User.user_name)
-			if err != nil {
-				_, err := db.Exec(addNewUser, update.Message.Chat.ID, update.Message.From.FirstName)
-				errors.CheckError(err)
+		for {
+			if update.Message != nil {
+				row := db.QueryRow(userDB, update.Message.Chat.ID)
+				err = row.Scan(&User.user_id, &User.user_name)
+				if err != nil {
+					_, err := db.Exec(addNewUser, update.Message.Chat.ID, update.Message.From.FirstName)
+					errors.CheckError(err)
+					break
+				}
 				break
 			}
-			break
 		}
-	}
-
-	for {
-		update = <-updChannel
 
 		if update.Message != nil {
 			if update.Message.IsCommand() {
 				if update.Message.Command() == "weather" {
-					weather, err := weather.Weather()
+					weather, err := weather.Weather("london")
 					errors.CheckError(err)
 
-					weatherInfo := fmt.Sprintf("Country: %v\nTemperature: %v\n",
-						weather.Location.Name, weather.Data.Values.Temperature)
+					weatherInfo := fmt.Sprintf("User ID: [%v]\nCountry: %v\nTemperature: %v\nHumidity: %v\nCloud Cover: %v\nVisibility: %v\n\nTime: %v\n",
+						update.Message.From.ID,
+						weather.Location.Name,
+						weather.Data.Values.Temperature,
+						weather.Data.Values.Humidity,
+						weather.Data.Values.CloudCover,
+						weather.Data.Values.Visibility,
+						weather.Data.Time)
 
 					msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, weatherInfo)
 					bot.Send(msgConfig)

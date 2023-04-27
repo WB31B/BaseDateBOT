@@ -4,6 +4,7 @@ import (
 	"TGbot/config"
 	"TGbot/errors"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 )
@@ -15,6 +16,7 @@ type WeatherData struct {
 
 type Data struct {
 	Values Values `json:"values"`
+	Time   string `json:"time"`
 }
 
 type Location struct {
@@ -25,13 +27,15 @@ type Values struct {
 	Temperature float64 `json:"temperature"`
 	WindSpeed   float64 `json:"windSpeed"`
 	Humidity    float64 `json:"humidity"`
+	CloudCover  float64 `json:"cloudCover"`
+	Visibility  float64 `jsin:"visibility"`
 }
 
-func Weather() (*WeatherData, error) {
+func Weather(cityWeather string) (*WeatherData, error) {
 	_, err := config.GetKey("")
 	errors.CheckError(err)
 
-	var apiRealtimeWeather = "https://api.tomorrow.io/v4/weather/realtime?location=kaunas&apikey=9JSN8g563Duyv4IBlexCrozX7iDzVM4N"
+	var apiRealtimeWeather = fmt.Sprintf("https://api.tomorrow.io/v4/weather/realtime?location=%v&apikey=9JSN8g563Duyv4IBlexCrozX7iDzVM4N", cityWeather)
 
 	weather, err := RealtimeWeather(apiRealtimeWeather)
 	errors.CheckError(err)
