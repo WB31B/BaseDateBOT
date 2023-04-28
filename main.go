@@ -18,18 +18,25 @@ var User struct {
 	user_tgid string
 }
 
+type UserInfo struct {
+	user_id   int64
+	user_name string
+	user_tgid string
+}
+
 func main() {
 	var (
 		bot        *tgbotapi.BotAPI
 		updChannel tgbotapi.UpdatesChannel
 		update     tgbotapi.Update
 		updConfig  tgbotapi.UpdateConfig
-		users      []int64
+		user       []UserInfo
 	)
 
 	// deleteUser := fmt.Sprintf(`delete from users where user_id = $1`)
 	addNewUser := fmt.Sprintf(`insert into "users"("user_id", "user_name", "user_tgid") values($1, $2, $3)`)
 	userDB := fmt.Sprintf(`select * from users where user_id = $1`)
+	usersDB := fmt.Sprintf(`select * from users`)
 
 	db, err := database.Connect()
 	errors.CheckError(err)
@@ -67,35 +74,69 @@ func main() {
 		if update.Message != nil {
 			if update.Message.IsCommand() {
 				if update.Message.Command() == "weather" {
-					weather, err := weather.Weather("london")
+					weather, err := weather.Weather("kyiv")
 					errors.CheckError(err)
 
 					data, _ := ioutil.ReadFile("images/6.png")
 					msgPhoto := tgbotapi.FileBytes{Name: "images/6.png", Bytes: data}
 					msgConfig := tgbotapi.NewPhoto(update.Message.Chat.ID, msgPhoto)
 
-					weatherInfo := fmt.Sprintf("User ID: [%v]\nCountry: %v\nTemperature: %v\nHumidity: %v\nCloud Cover: %v\nVisibility: %v\n\nTime: %v\n",
-						update.Message.From.ID,
-						weather.Location.Name,
-						weather.Data.Values.Temperature,
-						weather.Data.Values.Humidity,
-						weather.Data.Values.CloudCover,
-						weather.Data.Values.Visibility,
-						weather.Data.Time)
+					weatherInfo, err := weatherTemperature(weather, update)
+					errors.CheckError(err)
 
 					msgConfig.Caption = weatherInfo
 					bot.Send(msgConfig)
+				} else if update.Message.Command() == "stop" && update.Message.From.ID == 673324657 {
+					bot.StopReceivingUpdates()
+				}
+			} else if update.Message.Text == "users" && update.Message.From.ID == 673324657 {
+				rows, err := db.Query(usersDB)
+				errors.CheckError(err)
 
+				defer rows.Close()
+
+				for rows.Next() {
+					ui := UserInfo{}
+					err := rows.Scan(&ui.user_id, &ui.user_name, &ui.user_tgid)
+					if err != nil {
+						fmt.Println(err)
+						continue
+					}
+					user = append(user, ui)
 				}
-			} else if update.Message.Text == "users" {
-				for _, user := range users {
-					botMSG := fmt.Sprintf("user ID: %v", user)
-					msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, botMSG)
-					bot.Send(msgConfig)
-				}
+
+				outputUsers(user)
 			}
 		}
 	}
+}
 
-	bot.StopReceivingUpdates()
+func weatherTemperature(weather *weather.WeatherData, update tgbotapi.Update) (string, error) {
+	if weather.Data.Values.Temperature < 8 {
+		weatherInfo := fmt.Sprintf("👨‍💻 User ID: [%v]\n🌍 Country: %v\n🥶 Temperature: %v\n💧 Humidity: %v\n☁️ Cloud Cover: %v\n💨 Visibility: %v\n\n⏰ Time: %v\n",
+			update.Message.From.ID,
+			weather.Location.Name,
+			weather.Data.Values.Temperature,
+			weather.Data.Values.Humidity,
+			weather.Data.Values.CloudCover,
+			weather.Data.Values.Visibility,
+			weather.Data.Time)
+		return weatherInfo, nil
+	} else {
+		weatherInfo := fmt.Sprintf("👨‍💻 User ID: [%v]\n🌍 Country: %v\n🥵 Temperature: %v\n💧 Humidity: %v\n☁️ Cloud Cover: %v\n💨 Visibility: %v\n\n⏰ Time: %v\n",
+			update.Message.From.ID,
+			weather.Location.Name,
+			weather.Data.Values.Temperature,
+			weather.Data.Values.Humidity,
+			weather.Data.Values.CloudCover,
+			weather.Data.Values.Visibility,
+			weather.Data.Time)
+		return weatherInfo, nil
+	}
+}
+
+func outputUsers(user []UserInfo) {
+	for _, ui := range user {
+		fmt.Println(ui.user_name)
+	}
 }
