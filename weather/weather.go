@@ -32,10 +32,7 @@ type Values struct {
 }
 
 func Weather(cityWeather string) (*WeatherData, error) {
-	_, err := config.GetKey("")
-	errors.CheckError(err)
-
-	var apiRealtimeWeather = fmt.Sprintf("https://api.tomorrow.io/v4/weather/realtime?location=%v&apikey=9JSN8g563Duyv4IBlexCrozX7iDzVM4N", cityWeather)
+	var apiRealtimeWeather = fmt.Sprintf("https://api.tomorrow.io/v4/weather/realtime?location=%v&apikey=%v", cityWeather, config.WEATHERKEY)
 
 	weather, err := RealtimeWeather(apiRealtimeWeather)
 	errors.CheckError(err)
