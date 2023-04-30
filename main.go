@@ -53,6 +53,9 @@ func main() {
 	for {
 		update = <-updChannel
 
+		// msgHi := tgbotapi.NewMessage(update.Message.From.ID, "Hi, enter your city: ")
+		// bot.Send(msgHi)
+
 		for {
 			if update.Message != nil {
 				row := db.QueryRow(config.UserDB, update.Message.Chat.ID)
@@ -60,6 +63,10 @@ func main() {
 				if err != nil {
 					_, err := db.Exec(config.AddNewUser, update.Message.Chat.ID, update.Message.From.FirstName, update.Message.From.UserName)
 					errors.CheckError(err)
+
+					reply := fmt.Sprintf("Hello new User: %v", update.Message.From.FirstName)
+					msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
+					bot.Send(msgConfig)
 					break
 				}
 				break
@@ -67,25 +74,26 @@ func main() {
 		}
 
 		if update.Message != nil {
-			if update.Message.IsCommand() {
-				if update.Message.Command() == "weather" {
-					weather, err := weather.Weather("london")
-					errors.CheckError(err)
+			weather, err := weather.Weather(update.Message.Text)
+			errors.CheckError(err)
 
-					data, _ := ioutil.ReadFile("images/6.png")
-					msgPhoto := tgbotapi.FileBytes{Name: "images/6.png", Bytes: data}
-					msgConfig := tgbotapi.NewPhoto(update.Message.Chat.ID, msgPhoto)
+			// data, _ := ioutil.ReadFile("images/6.png")
+			// msgPhoto := tgbotapi.FileBytes{Name: "images/6.png", Bytes: data}
+			// msgConfig := tgbotapi.NewPhoto(update.Message.Chat.ID, msgPhoto)
 
-					weatherInfo, err := weatherTemperature(weather, update)
-					errors.CheckError(err)
+			weatherInfo, err := weatherTemperature(weather, update)
+			errors.CheckError(err)
 
-					msgConfig.Caption = weatherInfo
-					bot.Send(msgConfig)
+			msgConfig := tgbotapi.NewMessage(update.Message.From.ID, weatherInfo)
 
-				} else if update.Message.Command() == "stop" && update.Message.From.ID == config.ROOT {
-					bot.StopReceivingUpdates()
-				}
-			} else if update.Message.Text == "users" && update.Message.From.ID == config.ROOT {
+			// msgConfig.Caption = weatherInfo
+			bot.Send(msgConfig)
+		}
+
+		if update.Message.IsCommand() {
+			if update.Message.Command() == "stop" && update.Message.From.ID == config.ROOT {
+				bot.StopReceivingUpdates()
+			} else if update.Message.Command() == "users" && update.Message.From.ID == config.ROOT {
 				rows, err := db.Query(config.UsersFromDB)
 				errors.CheckError(err)
 
@@ -114,7 +122,7 @@ func main() {
 }
 
 func weatherTemperature(weather *weather.WeatherData, update tgbotapi.Update) (string, error) {
-	if weather.Data.Values.Temperature < 8 {
+	if weather.Data.Values.Temperature < 15 {
 		weatherInfo := fmt.Sprintf("👨‍💻 User ID: [%v]\n🌍 Country: %v\n🥶 Temperature: %v\n💧 Humidity: %v\n☁️ Cloud Cover: %v\n💨 Visibility: %v\n\n⏰ Time: %v\n",
 			update.Message.From.ID,
 			weather.Location.Name,
