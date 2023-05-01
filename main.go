@@ -53,8 +53,7 @@ func main() {
 	for {
 		update = <-updChannel
 
-		// msgHi := tgbotapi.NewMessage(update.Message.From.ID, "Hi, enter your city: ")
-		// bot.Send(msgHi)
+		command := update.Message.Command()
 
 		for {
 			if update.Message != nil {
@@ -73,7 +72,32 @@ func main() {
 			}
 		}
 
-		if update.Message != nil {
+		if command == "stop" && update.Message.From.ID == config.ROOTUSER {
+			bot.StopReceivingUpdates()
+		} else if command == "users" && update.Message.From.ID == config.ROOTUSER {
+			rows, err := db.Query(config.UsersFromDB)
+			errors.CheckError(err)
+
+			defer rows.Close()
+
+			for rows.Next() {
+				ui := UserInfo{}
+				err := rows.Scan(&ui.user_id, &ui.user_name, &ui.user_tgid)
+				if err != nil {
+					fmt.Println(err)
+					continue
+				}
+				user = append(user, ui)
+			}
+
+			// get document with users
+			path, err := OutputUsers(user)
+			errors.CheckError(err)
+			data, _ := ioutil.ReadFile(path)
+			msgFile := tgbotapi.FileBytes{Name: "usersDatabaseInfo.txt", Bytes: data}
+			msgConfig := tgbotapi.NewDocument(update.Message.Chat.ID, msgFile)
+			bot.Send(msgConfig)
+		} else if command == "" {
 			weather, err := weather.Weather(update.Message.Text)
 			errors.CheckError(err)
 
@@ -88,37 +112,12 @@ func main() {
 
 			// msgConfig.Caption = weatherInfo
 			bot.Send(msgConfig)
-		}
-
-		if update.Message.IsCommand() {
-			if update.Message.Command() == "stop" && update.Message.From.ID == config.ROOT {
-				bot.StopReceivingUpdates()
-			} else if update.Message.Command() == "users" && update.Message.From.ID == config.ROOT {
-				rows, err := db.Query(config.UsersFromDB)
-				errors.CheckError(err)
-
-				defer rows.Close()
-
-				for rows.Next() {
-					ui := UserInfo{}
-					err := rows.Scan(&ui.user_id, &ui.user_name, &ui.user_tgid)
-					if err != nil {
-						fmt.Println(err)
-						continue
-					}
-					user = append(user, ui)
-				}
-
-				// get document with users
-				path, err := OutputUsers(user)
-				errors.CheckError(err)
-				data, _ := ioutil.ReadFile(path)
-				msgFile := tgbotapi.FileBytes{Name: "usersDatabaseInfo.txt", Bytes: data}
-				msgConfig := tgbotapi.NewDocument(update.Message.Chat.ID, msgFile)
-				bot.Send(msgConfig)
-			}
+		} else {
+			msgConfig := tgbotapi.NewMessage(update.Message.From.ID, "This command is incorrect")
+			bot.Send(msgConfig)
 		}
 	}
+
 }
 
 func weatherTemperature(weather *weather.WeatherData, update tgbotapi.Update) (string, error) {
