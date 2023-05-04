@@ -27,6 +27,8 @@ type UserInfo struct {
 	user_tgid string
 }
 
+const weatherTitle = "🌏 [WEATHER INFORMATION] 🌕"
+
 func main() {
 	var (
 		bot        *tgbotapi.BotAPI
@@ -55,26 +57,23 @@ func main() {
 
 		command := update.Message.Command()
 
-		for {
-			if update.Message != nil {
-				row := db.QueryRow(config.UserDB, update.Message.Chat.ID)
-				err = row.Scan(&User.user_id, &User.user_name, &User.user_tgid)
-				if err != nil {
-					_, err := db.Exec(config.AddNewUser, update.Message.Chat.ID, update.Message.From.FirstName, update.Message.From.UserName)
-					errors.CheckError(err)
+		row := db.QueryRow(config.UserDB, update.Message.Chat.ID)
+		err = row.Scan(&User.user_id, &User.user_name, &User.user_tgid)
+		if err != nil {
+			_, err := db.Exec(config.AddNewUser, update.Message.Chat.ID, update.Message.From.FirstName, update.Message.From.UserName)
+			errors.CheckError(err)
 
-					reply := fmt.Sprintf("Hello new User: %v", update.Message.From.FirstName)
-					msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
-					bot.Send(msgConfig)
-					break
-				}
-				break
-			}
+			reply := fmt.Sprintf("Hello new User: %v", update.Message.From.FirstName)
+			msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
+			bot.Send(msgConfig)
+			continue
 		}
 
 		if command == "stop" && update.Message.From.ID == config.ROOTUSER {
+			fmt.Println("[Stop Bot]")
 			bot.StopReceivingUpdates()
 		} else if command == "users" && update.Message.From.ID == config.ROOTUSER {
+			fmt.Println("[Enter Commant]")
 			rows, err := db.Query(config.UsersFromDB)
 			errors.CheckError(err)
 
@@ -98,12 +97,9 @@ func main() {
 			msgConfig := tgbotapi.NewDocument(update.Message.Chat.ID, msgFile)
 			bot.Send(msgConfig)
 		} else if command == "" {
+			fmt.Println("[Weather Country]")
 			weather, err := weather.Weather(update.Message.Text)
 			errors.CheckError(err)
-
-			// data, _ := ioutil.ReadFile("images/6.png")
-			// msgPhoto := tgbotapi.FileBytes{Name: "images/6.png", Bytes: data}
-			// msgConfig := tgbotapi.NewPhoto(update.Message.Chat.ID, msgPhoto)
 
 			weatherInfo, err := weatherTemperature(weather, update)
 			errors.CheckError(err)
@@ -113,7 +109,8 @@ func main() {
 			// msgConfig.Caption = weatherInfo
 			bot.Send(msgConfig)
 		} else {
-			msgConfig := tgbotapi.NewMessage(update.Message.From.ID, "This command is incorrect")
+			fmt.Println("[Text]")
+			msgConfig := tgbotapi.NewMessage(update.Message.From.ID, "This command is INCORRECT!")
 			bot.Send(msgConfig)
 		}
 	}
@@ -122,7 +119,8 @@ func main() {
 
 func weatherTemperature(weather *weather.WeatherData, update tgbotapi.Update) (string, error) {
 	if weather.Data.Values.Temperature < 15 {
-		weatherInfo := fmt.Sprintf("👨‍💻 User ID: [%v]\n🌍 Country: %v\n🥶 Temperature: %v\n💧 Humidity: %v\n☁️ Cloud Cover: %v\n💨 Visibility: %v\n\n⏰ Time: %v\n",
+		weatherInfo := fmt.Sprintf("%s\n\n👨‍💻 User ID: [%v]\n🌍 Country: %v\n🥶 Temperature: %v\n💧 Humidity: %v\n☁️ Cloud Cover: %v\n💨 Visibility: %v\n\n⏰ Time: %v\n",
+			weatherTitle,
 			update.Message.From.ID,
 			weather.Location.Name,
 			weather.Data.Values.Temperature,
@@ -132,7 +130,8 @@ func weatherTemperature(weather *weather.WeatherData, update tgbotapi.Update) (s
 			weather.Data.Time)
 		return weatherInfo, nil
 	} else {
-		weatherInfo := fmt.Sprintf("👨‍💻 User ID: [%v]\n🌍 Country: %v\n🥵 Temperature: %v\n💧 Humidity: %v\n☁️ Cloud Cover: %v\n💨 Visibility: %v\n\n⏰ Time: %v\n",
+		weatherInfo := fmt.Sprintf("%s\n\n👨‍💻 User ID: [%v]\n🌍 Country: %v\n🥵 Temperature: %v\n💧 Humidity: %v\n☁️ Cloud Cover: %v\n💨 Visibility: %v\n\n⏰ Time: %v\n",
+			weatherTitle,
 			update.Message.From.ID,
 			weather.Location.Name,
 			weather.Data.Values.Temperature,
