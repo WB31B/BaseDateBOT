@@ -4,6 +4,7 @@ import (
 	"TGbot/config"
 	"TGbot/database"
 	"TGbot/errors"
+	"TGbot/log"
 	"TGbot/weather"
 	"fmt"
 	"io"
@@ -60,20 +61,24 @@ func main() {
 		row := db.QueryRow(config.UserDB, update.Message.Chat.ID)
 		err = row.Scan(&User.user_id, &User.user_name, &User.user_tgid)
 		if err != nil {
+			log.StartBot(update.Message.From.ID)
 			_, err := db.Exec(config.AddNewUser, update.Message.Chat.ID, update.Message.From.FirstName, update.Message.From.UserName)
 			errors.CheckError(err)
 
-			reply := fmt.Sprintf("Hello new User: %v", update.Message.From.FirstName)
+			reply := fmt.Sprintf("Hello, [%v], the developer of this bot is @WB31B The bot was created to display the weather of the region you specified. Write the city and the Bot will tell you the weather", update.Message.From.FirstName)
 			msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
 			bot.Send(msgConfig)
 			continue
 		}
 
 		if command == "stop" && update.Message.From.ID == config.ROOTUSER {
-			fmt.Println("[Stop Bot]")
+			msgConfig := tgbotapi.NewMessage(update.Message.From.ID, "Bot stoped!")
+			bot.Send(msgConfig)
+			log.StopBotCommand(update.Message.From.ID)
 			bot.StopReceivingUpdates()
+			break
 		} else if command == "users" && update.Message.From.ID == config.ROOTUSER {
-			fmt.Println("[Enter Commant]")
+			log.OutputUsersCommand(config.ROOTUSER)
 			rows, err := db.Query(config.UsersFromDB)
 			errors.CheckError(err)
 
@@ -97,7 +102,7 @@ func main() {
 			msgConfig := tgbotapi.NewDocument(update.Message.Chat.ID, msgFile)
 			bot.Send(msgConfig)
 		} else if command == "" {
-			fmt.Println("[Weather Country]")
+			log.ShowWeather(update.Message.From.ID, update.Message.Text)
 			weather, err := weather.Weather(update.Message.Text)
 			errors.CheckError(err)
 
@@ -109,9 +114,17 @@ func main() {
 			// msgConfig.Caption = weatherInfo
 			bot.Send(msgConfig)
 		} else {
-			fmt.Println("[Text]")
-			msgConfig := tgbotapi.NewMessage(update.Message.From.ID, "This command is INCORRECT!")
-			bot.Send(msgConfig)
+			if command == "start" {
+				log.StartCommand(update.Message.From.ID)
+				msgConfig := tgbotapi.NewMessage(update.Message.From.ID,
+					"Hello, the developer of this bot is @WB31B The bot was created to display the weather of the region you specified. Write the city and the Bot will tell you the weather")
+				bot.Send(msgConfig)
+			} else {
+				log.IncorrectCommand(update.Message.From.ID)
+				msgConfig := tgbotapi.NewMessage(update.Message.From.ID, "This command is INCORRECT!")
+				bot.Send(msgConfig)
+			}
+
 		}
 	}
 
