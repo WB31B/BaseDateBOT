@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	_ "github.com/lib/pq"
@@ -51,6 +52,8 @@ func main() {
 	updConfig.Limit = 1
 	updConfig.Offset = 0
 
+	start_time := time.Now()
+
 	updChannel = bot.GetUpdatesChan(updConfig)
 
 	for {
@@ -59,10 +62,11 @@ func main() {
 		command := update.Message.Command()
 
 		row := db.QueryRow(config.UserDB, update.Message.Chat.ID)
-		err = row.Scan(&User.user_id, &User.user_name, &User.user_tgid)
+		err = row.Scan(&User.user_id, &User.user_name, &User.user_tgid, &start_time)
 		if err != nil {
+			fmt.Println("1")
 			log.StartBot(update.Message.From.ID)
-			_, err := db.Exec(config.AddNewUser, update.Message.Chat.ID, update.Message.From.FirstName, update.Message.From.UserName)
+			_, err := db.Exec(config.AddNewUser, update.Message.Chat.ID, update.Message.From.FirstName, update.Message.From.UserName, start_time.Format("15:04:05"))
 			errors.CheckError(err)
 
 			reply := fmt.Sprintf("Hello, [%v], the developer of this bot is @WB31B The bot was created to display the weather of the region you specified. Write the city and the Bot will tell you the weather", update.Message.From.FirstName)
@@ -111,7 +115,8 @@ func main() {
 
 			msgConfig := tgbotapi.NewMessage(update.Message.From.ID, weatherInfo)
 
-			// msgConfig.Caption = weatherInfo
+			_, err = db.Exec(config.AddNewMessage, update.Message.Text, start_time.Format("15:04:05"), update.Message.From.ID)
+			errors.CheckError(err)
 			bot.Send(msgConfig)
 		} else {
 			if command == "start" {
