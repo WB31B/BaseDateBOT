@@ -1,3 +1,2 @@
-[0] Username: Sonya ❤ | User ID: 451961516
-[1] Username: root | User ID: 0
-[2] Username: Danil | User ID: 673324657
+[0] Username: Danil | User ID: 673324657
+[1] Username: Sonya ❤ | User ID: 451961516

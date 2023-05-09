@@ -24,9 +24,10 @@ var User struct {
 }
 
 type UserInfo struct {
-	user_id   int64
-	user_name string
-	user_tgid string
+	user_id    int64
+	user_name  string
+	user_tgid  string
+	start_time string
 }
 
 const weatherTitle = "🌏 [WEATHER INFORMATION] 🌕"
@@ -90,7 +91,7 @@ func main() {
 
 			for rows.Next() {
 				ui := UserInfo{}
-				err := rows.Scan(&ui.user_id, &ui.user_name, &ui.user_tgid)
+				err := rows.Scan(&ui.user_id, &ui.user_name, &ui.user_tgid, &ui.start_time)
 				if err != nil {
 					fmt.Println(err)
 					continue
@@ -114,9 +115,6 @@ func main() {
 			errors.CheckError(err)
 
 			msgConfig := tgbotapi.NewMessage(update.Message.From.ID, weatherInfo)
-
-			_, err = db.Exec(config.AddNewMessage, update.Message.Text, start_time.Format("15:04:05"), update.Message.From.ID)
-			errors.CheckError(err)
 			bot.Send(msgConfig)
 		} else {
 			if command == "start" {
