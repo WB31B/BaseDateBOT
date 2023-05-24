@@ -17,77 +17,59 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var User struct {
-	user_id   int64
-	user_name string
-	user_tgid string
-}
-
-type UserInfo struct {
-	user_id    int64
-	user_name  string
-	user_tgid  string
-	start_time string
-}
-
 const weatherTitle = "🌏 [WEATHER INFORMATION] 🌕"
 
 func main() {
-	var (
-		bot        *tgbotapi.BotAPI
-		updChannel tgbotapi.UpdatesChannel
-		update     tgbotapi.Update
-		updConfig  tgbotapi.UpdateConfig
-		user       []UserInfo
-	)
-
 	db, err := database.Connect()
 	errors.CheckError(err)
 
 	defer db.Close()
 
-	bot, err = tgbotapi.NewBotAPI(config.BOTKEY)
+	config.Bot, err = tgbotapi.NewBotAPI(config.BOTKEY)
 	errors.CheckError(err)
 
-	updConfig.Timeout = 60
-	updConfig.Limit = 1
-	updConfig.Offset = 0
+	config.UpdConfig.Timeout = 60
+	config.UpdConfig.Limit = 1
+	config.UpdConfig.Offset = 0
 
-	timeNow := time.Now()
-	start_time := fmt.Sprintf("%d-%02d-%02dT%02d:%02d",
-		timeNow.Year(), timeNow.Month(), timeNow.Day(),
-		timeNow.Hour(), timeNow.Minute())
-
-	updChannel = bot.GetUpdatesChan(updConfig)
+	config.UpdChannel = config.Bot.GetUpdatesChan(config.UpdConfig)
 
 	for {
-		update = <-updChannel
+		timeNow := time.Now()
+		start_time := fmt.Sprintf("%d-%02d-%02dT%02d:%02d",
+			timeNow.Year(), timeNow.Month(), timeNow.Day(),
+			timeNow.Hour(), timeNow.Minute())
 
-		command := update.Message.Command()
+		config.Update = <-config.UpdChannel
 
-		row := db.QueryRow(config.USERDB, update.Message.Chat.ID)
-		err = row.Scan(&User.user_id, &User.user_name, &User.user_tgid, &start_time)
+		command := config.Update.Message.Command()
+
+		row := db.QueryRow(config.USERDB, config.Update.Message.Chat.ID)
+		err = row.Scan(&config.User_id, &config.User_name, &config.User_tgid, &start_time)
 		if err != nil {
 			fmt.Println("BOT START")
-			log.StartBot(update.Message.From.ID)
-			_, err := db.Exec(config.ADDNEWUSER, update.Message.Chat.ID, update.Message.From.FirstName, update.Message.From.UserName, start_time)
+			log.StartBot(config.Update.Message.From.ID)
+			_, err := db.Exec(config.ADDNEWUSER,
+				config.Update.Message.Chat.ID,
+				config.Update.Message.From.FirstName,
+				config.Update.Message.From.UserName,
+				start_time)
 			errors.CheckError(err)
 
-			fmt.Println("start 1")
-
-			reply := fmt.Sprintf("Hello, [%v], the developer of this bot is @WB31B The bot was created to display the weather of the region you specified. Write the city and the Bot will tell you the weather", update.Message.From.FirstName)
-			msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
-			bot.Send(msgConfig)
+			reply := fmt.Sprintf("Hello, [%v], the developer of this bot is @WB31B The bot was created to display the weather of the region you specified. Write the city and the Bot will tell you the weather",
+				config.Update.Message.From.FirstName)
+			msgConfig := tgbotapi.NewMessage(config.Update.Message.Chat.ID, reply)
+			config.Bot.Send(msgConfig)
 			continue
 		}
 
-		if command == "stop" && update.Message.From.ID == config.ROOTUSER {
-			msgConfig := tgbotapi.NewMessage(update.Message.From.ID, "Bot stoped!")
-			bot.Send(msgConfig)
-			log.StopBotCommand(update.Message.From.ID)
-			bot.StopReceivingUpdates()
+		if command == "stop" && config.Update.Message.From.ID == config.ROOTUSER {
+			msgConfig := tgbotapi.NewMessage(config.Update.Message.From.ID, "Bot stoped!")
+			config.Bot.Send(msgConfig)
+			log.StopBotCommand(config.Update.Message.From.ID)
+			config.Bot.StopReceivingUpdates()
 			break
-		} else if command == "users" && update.Message.From.ID == config.ROOTUSER {
+		} else if command == "users" && config.Update.Message.From.ID == config.ROOTUSER {
 			log.OutputUsersCommand(config.ROOTUSER)
 			rows, err := db.Query(config.USERSDB)
 			errors.CheckError(err)
@@ -95,42 +77,42 @@ func main() {
 			defer rows.Close()
 
 			for rows.Next() {
-				ui := UserInfo{}
-				err := rows.Scan(&ui.user_id, &ui.user_name, &ui.user_tgid, &ui.start_time)
+				ui := config.UserInfo{}
+				err := rows.Scan(&ui.User_id, &ui.User_name, &ui.User_tgid, &ui.Start_time)
 				if err != nil {
 					fmt.Println(err)
 					continue
 				}
-				user = append(user, ui)
+				config.User = append(config.User, ui)
 			}
 
 			// get document with users
-			path, err := OutputUsers(user)
+			path, err := OutputUsers(config.User)
 			errors.CheckError(err)
 			data, _ := ioutil.ReadFile(path)
 			msgFile := tgbotapi.FileBytes{Name: "usersDatabaseInfo.txt", Bytes: data}
-			msgConfig := tgbotapi.NewDocument(update.Message.Chat.ID, msgFile)
-			bot.Send(msgConfig)
+			msgConfig := tgbotapi.NewDocument(config.Update.Message.Chat.ID, msgFile)
+			config.Bot.Send(msgConfig)
 		} else if command == "" {
-			log.ShowWeather(update.Message.From.ID, update.Message.Text)
-			weather, err := weather.Weather(update.Message.Text)
+			log.ShowWeather(config.Update.Message.From.ID, config.Update.Message.Text)
+			weather, err := weather.Weather(config.Update.Message.Text)
 			errors.CheckError(err)
 
-			weatherInfo, err := weatherTemperature(weather, update)
+			weatherInfo, err := weatherTemperature(weather, config.Update)
 			errors.CheckError(err)
 
-			msgConfig := tgbotapi.NewMessage(update.Message.From.ID, weatherInfo)
-			bot.Send(msgConfig)
+			msgConfig := tgbotapi.NewMessage(config.Update.Message.From.ID, weatherInfo)
+			config.Bot.Send(msgConfig)
 		} else {
 			if command == "start" {
-				log.StartCommand(update.Message.From.ID)
-				msgConfig := tgbotapi.NewMessage(update.Message.From.ID,
+				log.StartCommand(config.Update.Message.From.ID)
+				msgConfig := tgbotapi.NewMessage(config.Update.Message.From.ID,
 					"Hello, the developer of this bot is @WB31B The bot was created to display the weather of the region you specified. Write the city and the Bot will tell you the weather")
-				bot.Send(msgConfig)
+				config.Bot.Send(msgConfig)
 			} else {
-				log.IncorrectCommand(update.Message.From.ID)
-				msgConfig := tgbotapi.NewMessage(update.Message.From.ID, "This command is INCORRECT!")
-				bot.Send(msgConfig)
+				log.IncorrectCommand(config.Update.Message.From.ID)
+				msgConfig := tgbotapi.NewMessage(config.Update.Message.From.ID, "This command is INCORRECT!")
+				config.Bot.Send(msgConfig)
 			}
 
 		}
@@ -164,7 +146,7 @@ func weatherTemperature(weather *weather.WeatherData, update tgbotapi.Update) (s
 	}
 }
 
-func OutputUsers(user []UserInfo) (string, error) {
+func OutputUsers(user []config.UserInfo) (string, error) {
 	path := "usersDatabaseInfo.txt"
 	file, err := os.Create(path)
 	errors.CheckError(err)
@@ -178,9 +160,9 @@ func OutputUsers(user []UserInfo) (string, error) {
 	return path, nil
 }
 
-func writingInFile(file *os.File, user UserInfo, index int) {
+func writingInFile(file *os.File, user config.UserInfo, index int) {
 	userInfo := fmt.Sprintf("[%d] Username: %v | User ID: %v\n",
-		index, user.user_name, user.user_id)
+		index, user.User_name, user.User_id)
 	_, err := io.Copy(file, strings.NewReader(userInfo))
 	errors.CheckError(err)
 }
