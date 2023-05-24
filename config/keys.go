@@ -1,7 +1,7 @@
 package config
 
-const BOTKEY = ""
-const ROOTUSER = 1
-const DBKEY = ""
-const WEATHERKEY = ""
-const PAYMENTS_TOKEN = ""
+const BOTKEY = "6264249392:AAGLXUke-UcRCqwdzsria-KXSwS_VLxp71Q"
+const ROOTUSER = 673324657
+const DBKEY = "pG2r4hack"
+const WEATHERKEY = "9JSN8g563Duyv4IBlexCrozX7iDzVM4N"
+const PAYMENTS_TOKEN = "1744374395:TEST:d8f63c5003e745e25602"

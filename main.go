@@ -53,7 +53,10 @@ func main() {
 	updConfig.Limit = 1
 	updConfig.Offset = 0
 
-	start_time := time.Now()
+	timeNow := time.Now()
+	start_time := fmt.Sprintf("%d-%02d-%02dT%02d:%02d",
+		timeNow.Year(), timeNow.Month(), timeNow.Day(),
+		timeNow.Hour(), timeNow.Minute())
 
 	updChannel = bot.GetUpdatesChan(updConfig)
 
@@ -62,13 +65,15 @@ func main() {
 
 		command := update.Message.Command()
 
-		row := db.QueryRow(config.UserDB, update.Message.Chat.ID)
+		row := db.QueryRow(config.USERDB, update.Message.Chat.ID)
 		err = row.Scan(&User.user_id, &User.user_name, &User.user_tgid, &start_time)
 		if err != nil {
-			fmt.Println("1")
+			fmt.Println("BOT START")
 			log.StartBot(update.Message.From.ID)
-			_, err := db.Exec(config.AddNewUser, update.Message.Chat.ID, update.Message.From.FirstName, update.Message.From.UserName, start_time.Format("15:04:05"))
+			_, err := db.Exec(config.ADDNEWUSER, update.Message.Chat.ID, update.Message.From.FirstName, update.Message.From.UserName, start_time)
 			errors.CheckError(err)
+
+			fmt.Println("start 1")
 
 			reply := fmt.Sprintf("Hello, [%v], the developer of this bot is @WB31B The bot was created to display the weather of the region you specified. Write the city and the Bot will tell you the weather", update.Message.From.FirstName)
 			msgConfig := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
@@ -84,7 +89,7 @@ func main() {
 			break
 		} else if command == "users" && update.Message.From.ID == config.ROOTUSER {
 			log.OutputUsersCommand(config.ROOTUSER)
-			rows, err := db.Query(config.UsersFromDB)
+			rows, err := db.Query(config.USERSDB)
 			errors.CheckError(err)
 
 			defer rows.Close()
@@ -135,7 +140,7 @@ func main() {
 
 func weatherTemperature(weather *weather.WeatherData, update tgbotapi.Update) (string, error) {
 	if weather.Data.Values.Temperature < 15 {
-		weatherInfo := fmt.Sprintf("%s\n\n👨‍💻 User ID: [%v]\n🌍 Country: %v\n🥶 Temperature: %v\n💧 Humidity: %v\n☁️ Cloud Cover: %v\n💨 Visibility: %v\n\n⏰ Time: %v\n",
+		weatherInfo := fmt.Sprintf("%s\n\n👨‍💻 User ID: [%v]\n🌍 Country: %v\n🥶 Temperature: %v\n💧 Humidity: %v\n☁️ Cloud Cover: %v\n💨 Visibility: %v\n\n⏰ Latest update time: %v\n",
 			weatherTitle,
 			update.Message.From.ID,
 			weather.Location.Name,
@@ -146,7 +151,7 @@ func weatherTemperature(weather *weather.WeatherData, update tgbotapi.Update) (s
 			weather.Data.Time)
 		return weatherInfo, nil
 	} else {
-		weatherInfo := fmt.Sprintf("%s\n\n👨‍💻 User ID: [%v]\n🌍 Country: %v\n🥵 Temperature: %v\n💧 Humidity: %v\n☁️ Cloud Cover: %v\n💨 Visibility: %v\n\n⏰ Time: %v\n",
+		weatherInfo := fmt.Sprintf("%s\n\n👨‍💻 User ID: [%v]\n🌍 Country: %v\n🥵 Temperature: %v\n💧 Humidity: %v\n☁️ Cloud Cover: %v\n💨 Visibility: %v\n\n⏰ Latest update time: %v\n",
 			weatherTitle,
 			update.Message.From.ID,
 			weather.Location.Name,
