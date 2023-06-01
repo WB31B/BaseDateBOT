@@ -161,8 +161,8 @@ func OutputUsers(user []config.UserInfo) (string, error) {
 }
 
 func writingInFile(file *os.File, user config.UserInfo, index int) {
-	userInfo := fmt.Sprintf("[%d] Username: %v | User ID: %v\n",
-		index, user.User_name, user.User_id)
+	userInfo := fmt.Sprintf("[%d] Username: %v | User ID: %v | User TG Name: %v\n",
+		index, user.User_name, user.User_id, user.User_tgid)
 	_, err := io.Copy(file, strings.NewReader(userInfo))
 	errors.CheckError(err)
 }
