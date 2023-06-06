@@ -98,11 +98,17 @@ func main() {
 			weather, err := weather.Weather(config.Update.Message.Text)
 			errors.CheckError(err)
 
-			weatherInfo, err := weatherTemperature(weather, config.Update)
-			errors.CheckError(err)
+			if weather.Location.Name == "" {
+				msgConfig := tgbotapi.NewMessage(config.Update.Message.From.ID, "There is no such city...")
+				config.Bot.Send(msgConfig)
+			} else {
+				weatherInfo, err := weatherTemperature(weather, config.Update)
+				errors.CheckError(err)
 
-			msgConfig := tgbotapi.NewMessage(config.Update.Message.From.ID, weatherInfo)
-			config.Bot.Send(msgConfig)
+				msgConfig := tgbotapi.NewMessage(config.Update.Message.From.ID, weatherInfo)
+				config.Bot.Send(msgConfig)
+			}
+
 		} else {
 			if command == "start" {
 				log.StartCommand(config.Update.Message.From.ID)
