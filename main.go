@@ -47,7 +47,7 @@ func main() {
 		row := db.QueryRow(config.USERDB, config.Update.Message.Chat.ID)
 		err = row.Scan(&config.User_id, &config.User_name, &config.User_tgid, &start_time)
 		if err != nil {
-			fmt.Println("BOT START")
+			fmt.Println("BOT START:", config.Update.Message.Chat.ID)
 			log.StartBot(config.Update.Message.From.ID)
 			_, err := db.Exec(config.ADDNEWUSER,
 				config.Update.Message.Chat.ID,
@@ -64,7 +64,8 @@ func main() {
 		}
 
 		if command == "stop" && config.Update.Message.From.ID == config.ROOTUSER {
-			msgConfig := tgbotapi.NewMessage(config.Update.Message.From.ID, "Bot stoped!")
+			msgBot := fmt.Sprintf("Bot stoped... \n[%v]", timeNow)
+			msgConfig := tgbotapi.NewMessage(config.Update.Message.From.ID, msgBot)
 			config.Bot.Send(msgConfig)
 			log.StopBotCommand(config.Update.Message.From.ID)
 			config.Bot.StopReceivingUpdates()
